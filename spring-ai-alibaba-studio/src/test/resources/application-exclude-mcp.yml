@@ -1,0 +1,24 @@
+spring:
+  application:
+    name: spring-ai-alibaba-studio
+  ai:
+    dashscope:
+      api-key: ${AI_DASHSCOPE_API_KEY:test-key}
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.mcp.client.common.autoconfigure.McpClientAutoConfiguration
+      - org.springframework.ai.mcp.client.common.autoconfigure.McpToolCallbackAutoConfiguration
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+    cache-enabled: false
+    map-underscore-to-camel-case: true
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+    com.alibaba.cloud.ai: DEBUG
