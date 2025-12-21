@@ -63,6 +63,8 @@ public class GraphParserTest {
 		AsyncNodeAction actionA = state -> CompletableFuture.completedFuture(Map.of("step", "A"));
 		AsyncNodeAction actionB = state -> CompletableFuture.completedFuture(Map.of("step", "B"));
 
+		when(applicationContext.isTypeMatch("beanA", AsyncNodeAction.class)).thenReturn(true);
+		when(applicationContext.isTypeMatch("beanB", AsyncNodeAction.class)).thenReturn(true);
 		when(applicationContext.getBean("beanA")).thenReturn(actionA);
 		when(applicationContext.getBean("beanB")).thenReturn(actionB);
 
@@ -96,6 +98,8 @@ public class GraphParserTest {
 		
 		AsyncNodeAction actionBean = state -> CompletableFuture.completedFuture(Map.of());
 
+		when(applicationContext.isTypeMatch("routerBean", AsyncCommandAction.class)).thenReturn(true);
+		when(applicationContext.isTypeMatch("actionBean", AsyncNodeAction.class)).thenReturn(true);
 		when(applicationContext.getBean("routerBean")).thenReturn(routerAction);
 		when(applicationContext.getBean("actionBean")).thenReturn(actionBean);
 
@@ -128,6 +132,8 @@ public class GraphParserTest {
 
 		// Mock Bean
 		AsyncNodeAction actionA = state -> CompletableFuture.completedFuture(Map.of("step", "A"));
+		// Security Check Mocks
+		when(applicationContext.isTypeMatch("beanA", AsyncNodeAction.class)).thenReturn(true);
 		when(applicationContext.getBean("beanA")).thenReturn(actionA);
 
 		// Parse Main Graph
@@ -136,5 +142,67 @@ public class GraphParserTest {
 		assertNotNull(graph);
 		CompiledGraph compiled = graph.compile();
 		assertNotNull(compiled);
+	}
+
+	@Test
+	public void testSecurityTypeCheck() {
+		// Define Node pointing to a non-node bean (e.g., a DataSource)
+		NodeDefinition maliciousNode = new NodeDefinition("malicious", NodeType.STANDARD, "dataSourceBean", null);
+		EdgeDefinition edge = new EdgeDefinition(StateGraph.START, "malicious", null);
+
+		// Mock Bean Type Check Failure
+		when(applicationContext.isTypeMatch("dataSourceBean", AsyncNodeAction.class)).thenReturn(false);
+		when(applicationContext.isTypeMatch("dataSourceBean", AsyncCommandAction.class)).thenReturn(false);
+
+		// Parse should throw
+		try {
+			parser.parse(List.of(maliciousNode), List.of(edge));
+			throw new RuntimeException("Should have thrown IllegalArgumentException");
+		} catch (RuntimeException e) {
+			// Expected
+			if (e.getCause() instanceof IllegalArgumentException) {
+				String msg = e.getCause().getMessage();
+				if (!msg.contains("Security Error")) {
+					throw new RuntimeException("Unexpected error message: " + msg);
+				}
+			} else {
+				throw e;
+			}
+		}
+	}
+
+	@Test
+	public void testCycleDetection() {
+		// Graph A -> Graph B -> Graph A
+		NodeDefinition nodeA = new NodeDefinition("nodeA", NodeType.SUB_GRAPH, "graphB", null);
+		EdgeDefinition edgeA = new EdgeDefinition(StateGraph.START, "nodeA", null);
+
+		NodeDefinition nodeB = new NodeDefinition("nodeB", NodeType.SUB_GRAPH, "graphA", null);
+		EdgeDefinition edgeB = new EdgeDefinition(StateGraph.START, "nodeB", null);
+
+		when(repository.findNodesByGraphId("graphA")).thenReturn(List.of(nodeA));
+		when(repository.findEdgesByGraphId("graphA")).thenReturn(List.of(edgeA));
+
+		when(repository.findNodesByGraphId("graphB")).thenReturn(List.of(nodeB));
+		when(repository.findEdgesByGraphId("graphB")).thenReturn(List.of(edgeB));
+
+		try {
+			parser.parse("graphA");
+			throw new RuntimeException("Should have thrown RuntimeException -> IllegalArgumentException for cycle");
+		} catch (RuntimeException e) {
+			Throwable current = e;
+			boolean found = false;
+			while (current != null) {
+				if (current instanceof IllegalArgumentException && current.getMessage().contains("infinite recursion")) {
+					found = true;
+					break;
+				}
+				current = current.getCause();
+			}
+			
+			if (!found) {
+				throw new RuntimeException("Unexpected error chain: " + e.getMessage(), e);
+			}
+		}
 	}
 }

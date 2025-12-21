@@ -22,8 +22,10 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -49,9 +51,21 @@ public class GraphParser {
 	 * @return the constructed StateGraph
 	 */
 	public StateGraph parse(String graphId) {
-		List<NodeDefinition> nodes = repository.findNodesByGraphId(graphId);
-		List<EdgeDefinition> edges = repository.findEdgesByGraphId(graphId);
-		return parse(nodes, edges);
+		return parse(graphId, new HashSet<>());
+	}
+
+	private StateGraph parse(String graphId, Set<String> visitedGraphIds) {
+		if (visitedGraphIds.contains(graphId)) {
+			throw new IllegalArgumentException("Detected infinite recursion cycle for graphId: " + graphId);
+		}
+		visitedGraphIds.add(graphId);
+		try {
+			List<NodeDefinition> nodes = repository.findNodesByGraphId(graphId);
+			List<EdgeDefinition> edges = repository.findEdgesByGraphId(graphId);
+			return parse(nodes, edges, visitedGraphIds);
+		} finally {
+			visitedGraphIds.remove(graphId);
+		}
 	}
 
 	/**
@@ -61,6 +75,10 @@ public class GraphParser {
 	 * @return the constructed StateGraph
 	 */
 	public StateGraph parse(List<NodeDefinition> nodes, List<EdgeDefinition> edges) {
+		return parse(nodes, edges, new HashSet<>());
+	}
+
+	private StateGraph parse(List<NodeDefinition> nodes, List<EdgeDefinition> edges, Set<String> visitedGraphIds) {
 		StateGraph stateGraph = new StateGraph();
 
 		// Map sourceId -> List<EdgeDefinition>
@@ -77,8 +95,8 @@ public class GraphParser {
 				boolean isConditional = nodeEdges.stream().anyMatch(e -> StringUtils.hasText(e.getCondition()));
 
 				if (type == NodeType.SUB_GRAPH) {
-					// Recursive load
-					StateGraph subStateGraph = parse(resource);
+					// Recursive load with cycle detection
+					StateGraph subStateGraph = parse(resource, visitedGraphIds);
 					stateGraph.addNode(id, subStateGraph);
 
 					if (isConditional) {
@@ -87,6 +105,14 @@ public class GraphParser {
 
 				} else {
 					// STANDARD Node
+					// SECURITY: Validate bean type BEFORE retrieval to prevent arbitrary bean instantiation
+					boolean isNodeAction = applicationContext.isTypeMatch(resource, AsyncNodeAction.class);
+					boolean isCommandAction = applicationContext.isTypeMatch(resource, AsyncCommandAction.class);
+
+					if (!isNodeAction && !isCommandAction) {
+						throw new IllegalArgumentException("Security Error: Bean '" + resource + "' is not a valid graph node type (AsyncNodeAction or AsyncCommandAction).");
+					}
+
 					Object bean = applicationContext.getBean(resource);
 
 					if (isConditional) {
@@ -107,6 +133,7 @@ public class GraphParser {
 						} else if (bean instanceof AsyncCommandAction) {
 							throw new IllegalArgumentException("Node '" + id + "' has no conditional edges but bean '" + resource + "' is an AsyncCommandAction. Use AsyncNodeAction for standard steps.");
 						} else {
+							// Should be caught by the isTypeMatch check above, but for completeness:
 							throw new IllegalArgumentException("Bean '" + resource + "' for node '" + id + "' must implement AsyncNodeAction or AsyncCommandAction.");
 						}
 					}
