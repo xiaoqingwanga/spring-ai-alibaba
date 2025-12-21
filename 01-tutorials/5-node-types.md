@@ -40,3 +40,8 @@ The graph also relies on special node identifiers:
 - `START`: The entry point of the graph.
 - `END`: The terminal point of the graph.
 - `ERROR`: Handling error states.
+
+## 4. Code Execution Nodes
+
+For executing arbitrary code (like Python, Java, or JavaScript) within a node, use `CodeExecutorNodeAction`.
+See [Python Code Execution Node](6-python-code-execution.md) for a detailed guide.
