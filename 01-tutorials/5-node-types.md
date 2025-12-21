@@ -45,3 +45,11 @@ The graph also relies on special node identifiers:
 
 For executing arbitrary code (like Python, Java, or JavaScript) within a node, use `CodeExecutorNodeAction`.
 See [Python Code Execution Node](6-python-code-execution.md) for a detailed guide.
+
+## 5. High-Level Abstractions
+
+The **Agent Framework** builds upon these fundamental node types to provide higher-level constructs called "Agents".
+
+- **`ReactAgent`**: A graph composed of a model node, tool nodes, and a conditional router.
+- **`ParallelAgent`**: Abstracts the complexity of `ParallelNode` to run multiple agents concurrently.
+- **`SequentialAgent`**: Composes multiple agents into a linear `SubCompiledGraph`.

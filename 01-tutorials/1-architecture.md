@@ -207,6 +207,17 @@ end note
 - Studio uses both Core and Agent Framework
 - Starters provide convenient Spring Boot integration
 
+## Spring Boot Starters
+
+The `spring-boot-starters/` directory contains standard Spring Boot Starters that simplify the integration of Spring AI Alibaba features.
+
+| Starter Name | Description |
+| :--- | :--- |
+| **`spring-ai-alibaba-starter-a2a-nacos`** | Enables **Agent-to-Agent (A2A)** communication using Nacos for service discovery. Allows agents to register as servers and discover other agents. |
+| **`spring-ai-alibaba-starter-config-nacos`** | Integrates with the **Agent Config** no-code feature. Enables defining agents via YAML configuration stored in Nacos. |
+| **`spring-ai-alibaba-starter-builtin-nodes`** | Provides pre-built **StateGraph nodes** (e.g., document parsers, RAG, [code execution](6-python-code-execution.md)) and necessary dependencies (like Docker). |
+| **`spring-ai-alibaba-starter-graph-observation`** | Configures **observability** for StateGraph applications using Micrometer for metrics and tracing. |
+
 ## Agent Framework Classes
 
 ```plantuml
@@ -415,6 +426,24 @@ end note
 - Flow Agents provide orchestration patterns (Sequential, Parallel, Loop, etc.)
 - Tools extend agent capabilities (Filesystem, API calls, etc.)
 - Interceptors handle cross-cutting concerns
+
+## Agent Types
+
+The framework provides several ready-to-use agent implementations:
+
+### 1. ReAct Agent (`ReactAgent`)
+- **Pattern**: Reason-Act-Observe loop.
+- **Use Case**: General purpose complex problem solving.
+- **Capabilities**: Can use tools, maintain memory, and handle complex instructions.
+
+### 2. Flow Agents
+Flow Agents orchestrate multiple sub-agents to create complex workflows.
+
+- **`SequentialAgent`**: Executes a list of agents in a strict sequence. The output of one agent becomes the input of the next.
+- **`ParallelAgent`**: Executes multiple agents concurrently ("fan-out") and merges their results ("gather"). Useful for independent sub-tasks.
+- **`LoopAgent`**: Repeatedly executes an agent until a specific condition is met. Useful for iterative refinement or polling.
+- **`SupervisorAgent`**: Uses an LLM router to delegate tasks to specific sub-agents.
+- **`LlmRoutingAgent`**: purely uses an LLM to decide the next step/node in a graph.
 
 ## Execution Flow
 

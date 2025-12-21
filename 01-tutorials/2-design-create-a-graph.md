@@ -1,4 +1,13 @@
-# DB rows to StateGraph
+# Dynamic Graph Construction from Database
+
+This tutorial demonstrates how to build a `StateGraph` dynamically based on configuration stored in a database. This pattern is useful when you want to allow users or administrators to define workflows at runtime without redeploying code.
+
+## Concept
+
+Instead of hardcoding the `StateGraph` structure in your Java code, you fetch node and edge definitions from a repository and construct the graph programmatically.
+
+## Example Implementation
+
 ```java
 @Service
 public class DatabaseGraphLoader {
